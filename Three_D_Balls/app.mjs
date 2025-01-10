@@ -15,6 +15,8 @@ import { Sky } from "../99_Lib/jsm/objects/Sky.js";
 
 import { VRButton } from "../99_Lib/jsm/webxr/VRButton.js";
 import { createVRcontrollers } from "./js/vr.mjs";
+import { XRControllerModelFactory } from "../99_Lib/jsm/webxr/XRControllerModelFactory.js";
+import { XRButton } from "../99_Lib/jsm/webxr/XRButton.js";
 
 // OrbitControls
 import { OrbitControls } from "../99_Lib/jsm/controls/OrbitControls.js";
@@ -38,7 +40,7 @@ window.onload = async function () {
   //     0.1,
   //     1000
   //   );
-  
+
   const camera = new THREE.PerspectiveCamera( // fov, aspect, near, far
     45,
     window.innerWidth / window.innerHeight,
@@ -54,15 +56,45 @@ window.onload = async function () {
   controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
 
   // Camera with Keyboard-Events
-  controls.keys = {
-    LEFT: "KeyA", //left arrow
-    UP: "KeyW", // up arrow
-    RIGHT: "KeyD", // right arrow
-    BOTTOM: "KeyS", // down arrow
-  };
+  // controls.keys = {
+  //   LEFT: "KeyA", //left arrow
+  //   UP: "KeyW", // up arrow
+  //   RIGHT: "KeyD", // right arrow
+  //   BOTTOM: "KeyS", // down arrow
+  // };
   controls.listenToKeyEvents(window);
   controls.keyPanSpeed = 20;
   controls.update();
+
+  document.addEventListener("keydown", (event) => {
+    switch (event.code) {
+      case "KeyW":
+        camera.position.z += 0.1;
+        // camera.translateZ(-0.1);
+        break;
+      case "KeyS":
+        camera.position.z -= 0.1;
+        // camera.translateZ(0.1);
+        break;
+      case "KeyA":
+        camera.position.x -= 0.1;
+        // camera.translateX(-0.1);
+        break;
+      case "KeyD":
+        camera.position.x += 0.1;
+        // camera.translateX(0.1);
+        break;
+      case "Space":
+        // camera.translateY(0.1);
+        camera.position.y += 0.1;
+        console.log(camera.position.y);
+        break;
+      case "ControlLeft":
+        // camera.translateY(-0.1);
+        // camera.position.z -= 0.1;
+        break;
+    }
+  });
 
   // Scene und World erstellen
   scene = new THREE.Scene();
@@ -85,7 +117,7 @@ window.onload = async function () {
   const width = room.geometry.parameters.width;
   const heigth = room.geometry.parameters.height;
   console.log(width);
-  room.geometry.translate(0, 3, 0);
+  room.geometry.translate(0, 4, 0); // x,y,z
   scene.add(room);
 
   // Floor erstellen
@@ -126,6 +158,58 @@ window.onload = async function () {
   renderer.shadowMap.enabled = true;
   document.body.appendChild(renderer.domElement);
   document.body.appendChild(VRButton.createButton(renderer));
+
+  document.body.appendChild( XRButton.createButton( renderer, {
+    'optionalFeatures': [ 'depth-sensing' ],
+    'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] }
+  } ) );
+
+  // Contrllers erstellen
+  function onSelectStart() {
+    this.userData.isSelecting = true;
+  }
+  function onSelectEnd() {
+    this.userData.isSelecting = false;
+  }
+  controller1 = renderer.xr.getController(0);
+  controller1.addEventListener("selectstart", onSelectStart);
+  controller1.addEventListener("selectend", onSelectEnd);
+  controller1.addEventListener("connected", function (event) {
+    this.add(buildController(event.data));
+  });
+  controller1.addEventListener("disconnected", function () {
+    this.remove(this.children[0]);
+  });
+  controller2 = renderer.xr.getController(1);
+  controller2.addEventListener("selectstart", onSelectStart);
+  controller2.addEventListener("selectend", onSelectEnd);
+  controller2.addEventListener("connected", function (event) {
+    this.add(buildController(event.data));
+  });
+  controller2.addEventListener("disconnected", function () {
+    this.remove(this.children[0]);
+  });
+  scene.add(controller2);
+  scene.add(controller1);
+
+  // Show controllers
+  const controllerModelFactory = new XRControllerModelFactory();
+
+  controllerGrip1 = renderer.xr.getControllerGrip(0);
+  controllerGrip1.add(
+    controllerModelFactory.createControllerModel(controllerGrip1)
+  );
+  scene.add(controllerGrip1);
+
+  controllerGrip2 = renderer.xr.getControllerGrip(1);
+  controllerGrip2.add(
+    controllerModelFactory.createControllerModel(controllerGrip2)
+  );
+  scene.add(controllerGrip2);
+
+  function buildController (data) {
+    console.log(data);
+  }
 
   // Renderer-Setup
   function render() {
