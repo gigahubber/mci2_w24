@@ -55,13 +55,6 @@ window.onload = async function () {
   controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
   controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
 
-  // Camera with Keyboard-Events
-  // controls.keys = {
-  //   LEFT: "KeyA", //left arrow
-  //   UP: "KeyW", // up arrow
-  //   RIGHT: "KeyD", // right arrow
-  //   BOTTOM: "KeyS", // down arrow
-  // };
   controls.listenToKeyEvents(window);
   controls.keyPanSpeed = 20;
   controls.update();
@@ -109,7 +102,7 @@ window.onload = async function () {
     wireframe: false,
   });
   room = new THREE.LineSegments(
-    new THREE.BoxGeometry(10, 10, 10, 10, 10, 10), // Breite, Höhe, Tiefe, Breite Segmente, Höhe Segmente, Tiefe Segmente
+    new THREE.BoxGeometry(40, 20, 40, 10, 10, 10), // Breite, Höhe, Tiefe, Breite Segmente, Höhe Segmente, Tiefe Segmente
     // new THREE.LineBasicMaterial({ color: 0x808080 })
     roomMaterial
     // randomMaterial()
@@ -117,12 +110,12 @@ window.onload = async function () {
   const width = room.geometry.parameters.width;
   const heigth = room.geometry.parameters.height;
   console.log(width);
-  room.geometry.translate(0, 4, 0); // x,y,z
+  room.geometry.translate(0, 8, 0); // x,y,z
   scene.add(room);
 
   // Floor erstellen
   //   const textureLoaderFloor = new THREE.TextureLoader().load('assets/bricks.jpg');
-  const boxFloor = new THREE.BoxGeometry(10, 0.1, 10, 1, 1, 1); // Breite, Höhe, Tiefe, Breite Segmente, Höhe Segmente, Tiefe Segmente
+  const boxFloor = new THREE.BoxGeometry(40, 0.1, 40, 1, 1, 1); // Breite, Höhe, Tiefe, Breite Segmente, Höhe Segmente, Tiefe Segmente
   const floorMaterial = new THREE.MeshBasicMaterial({
     color: 0x2a9336,
     side: THREE.DoubleSide,
@@ -159,10 +152,10 @@ window.onload = async function () {
   document.body.appendChild(renderer.domElement);
   document.body.appendChild(VRButton.createButton(renderer));
 
-  document.body.appendChild( XRButton.createButton( renderer, {
-    'optionalFeatures': [ 'depth-sensing' ],
-    'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] }
-  } ) );
+  // document.body.appendChild( XRButton.createButton( renderer, {
+  //   'optionalFeatures': [ 'depth-sensing' ],
+  //   'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] }
+  // } ) );
 
   // Contrllers erstellen
   function onSelectStart() {
@@ -200,20 +193,66 @@ window.onload = async function () {
     controllerModelFactory.createControllerModel(controllerGrip1)
   );
   scene.add(controllerGrip1);
-
   controllerGrip2 = renderer.xr.getControllerGrip(1);
   controllerGrip2.add(
     controllerModelFactory.createControllerModel(controllerGrip2)
   );
   scene.add(controllerGrip2);
 
-  function buildController (data) {
-    console.log(data);
+  function buildController(data) {
+    console.log("test: ", data);
+    let geometry, material;
+
+    switch (data.targetRayMode) {
+      case "tracked-pointer":
+        geometry = new THREE.BufferGeometry();
+        geometry.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, -1], 3)
+        );
+        geometry.setAttribute(
+          "color",
+          new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3)
+        );
+
+        material = new THREE.LineBasicMaterial({
+          vertexColors: true,
+          blending: THREE.AdditiveBlending,
+        });
+
+        return new THREE.Line(geometry, material);
+
+      case "gaze":
+        geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, -1);
+        material = new THREE.MeshBasicMaterial({
+          opacity: 0.5,
+          transparent: true,
+        });
+        return new THREE.Mesh(geometry, material);
+    }
+  }
+
+  // Controller Hanlder
+  function handleController(controller) {
+    if (controller.userData.isSelecting) {
+      physics.setMeshPosition(spheres, controller.position, count);
+
+      velocity.x = (Math.random() - 0.5) * 2;
+      velocity.y = (Math.random() - 0.5) * 2;
+      velocity.z = Math.random() - 9;
+      velocity.applyQuaternion(controller.quaternion);
+
+      physics.setMeshVelocity(spheres, velocity, count);
+
+      if (++count === spheres.count) count = 0;
+    }
   }
 
   // Renderer-Setup
   function render() {
     // Functions later
+    // handleController(controller1);
+    // handleController(controller2);
 
     renderer.render(scene, camera);
 
