@@ -137,6 +137,7 @@ function updateCameraPosition() {
     for(const inputSource of inputSources) {
       if(inputSource.gamepad) {
         const axes = inputSource.gamepad.axes;
+        const buttons = inputSource.gamepad.buttons;
         const moveX = axes[2];  // left-right
         const moveZ = axes[3]; // forward-backward
 
