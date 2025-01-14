@@ -12,6 +12,8 @@ let camera, scene, renderer;
 let controller1, controller2;
 let controllerGrip1, controllerGrip2;
 
+let dolly;
+
 let room, spheres, physics;
 const velocity = new THREE.Vector3();
 
@@ -67,7 +69,9 @@ function init() {
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.maxDistance = 10;
+  // controls.target.y = 1.6;
   controls.target.y = 1.6;
+
   controls.update();
 
   document.body.appendChild(
@@ -130,6 +134,8 @@ function init() {
   window.addEventListener("resize", onWindowResize);
 }
 
+dolly = new THREE.Object3D();
+
 function updateCameraPosition() {
   const session = renderer.xr.getSession();
   if(session) {
@@ -137,12 +143,17 @@ function updateCameraPosition() {
     for(const inputSource of inputSources) {
       if(inputSource.gamepad) {
         const axes = inputSource.gamepad.axes;
+        // if(axes) {
+        //   console.log("moved stick", axes)
+        // }
+        // console.log(inputSource.gamepad.axes)
         const buttons = inputSource.gamepad.buttons;
         const moveX = axes[2];  // left-right
         const moveZ = axes[3]; // forward-backward
 
-        camera.position.z += moveZ * 0.1;
-        camera.position.x += moveX * 0.1;
+        console.log(`X: ${moveX}, Z: ${moveZ}`);
+        camera.position.z += moveZ * 0.05;
+        camera.position.x += moveX * 0.05;
 
         if (buttons[0].pressed) {
           console.log('Button Trigger pressed');
@@ -162,7 +173,6 @@ function updateCameraPosition() {
         }if (buttons[5].pressed) {
           console.log('Button b pressed');
         }
-        
       }
     }
   }  
@@ -258,7 +268,7 @@ async function initPhysics() {
   const geometry = new THREE.IcosahedronGeometry(0.08, 3);
   const material = new THREE.MeshLambertMaterial();
 
-  spheres = new THREE.InstancedMesh(geometry, material, 800);
+  spheres = new THREE.InstancedMesh(geometry, material, 10);
   spheres.instanceMatrix.setUsage(THREE.DynamicDrawUsage); // will be updated every frame
   spheres.userData.physics = { mass: 1, restitution: 1.1 };
   scene.add(spheres);
@@ -267,12 +277,12 @@ async function initPhysics() {
   const color = new THREE.Color();
 
   for (let i = 0; i < spheres.count; i++) {
-    const x = Math.random() * 4 - 2;
-    const y = Math.random() * 4;
-    const z = Math.random() * 4 - 2;
-    // const x = 2;
-    // const y = 2;
-    // const z = 2;
+    // const x = Math.random() * 4 - 2;
+    // const y = Math.random() * 4;
+    // const z = Math.random() * 4 - 2;
+    const x = 2;
+    const y = 2;
+    const z = 2;
 
     matrix.setPosition(x, y, z);
     spheres.setMatrixAt(i, matrix);
@@ -303,7 +313,10 @@ function animate() {
   handleController(controller1);
   handleController(controller2);
 
-  updateCameraPosition();
-
-  renderer.render(scene, camera);
+  // updateCameraPosition();
+  // renderer.render(scene, camera);
+  renderer.setAnimationLoop(() => {
+    updateCameraPosition();
+    renderer.render(scene, camera);
+  });
 }
