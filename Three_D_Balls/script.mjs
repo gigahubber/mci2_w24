@@ -145,13 +145,24 @@ function updateCameraPosition() {
         camera.position.x += moveX * 0.1;
 
         if (buttons[0].pressed) {
-          console.log('Button A pressed');
+          console.log('Button Trigger pressed');
         }
 
         // Check if button B (index 1) is pressed
         if (buttons[1].pressed) {
-          console.log('Button B pressed');
+          console.log('Button Bumper pressed');
         }
+        if (buttons[2].pressed) {
+          console.log('Button Stick pressed');
+        }if (buttons[3].pressed) {
+          console.log('Button z pressed');
+        }
+        if (buttons[4].pressed) {
+          console.log('Button a pressed');
+        }if (buttons[5].pressed) {
+          console.log('Button b pressed');
+        }
+        
       }
     }
   }  
