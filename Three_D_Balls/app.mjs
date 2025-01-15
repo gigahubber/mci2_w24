@@ -74,7 +74,19 @@ window.onload = async function () {
     x += delta;
   }
 
-  loadGLTFcb("./models/pistol.glb", (gltf) => {
+  loadGLTFcb("./models/revolver.glb", (gltf) => {
+    gltf.scene.traverse((child) => {
+      if (child.name.includes("geo")) {
+        objects.push(child);
+        child.scale.set(0.2, 0.2, 0.2); // scale here
+        child.position.set(1, 0.5, 0);
+        child.updateMatrix();
+        child.matrixAutoUpdate = false;
+      }
+    });
+    world.add(gltf.scene);
+  });
+  loadGLTFcb("./models/cube_with_inner_sphere.glb", (gltf) => {
     gltf.scene.traverse((child) => {
       if (child.name.includes("geo")) {
         objects.push(child);
@@ -151,7 +163,8 @@ window.onload = async function () {
   });
 
   let grabbed = false,
-    squeezed = false;
+    squeezed = false,
+    isShoot = false;
   addKey(" ", (active) => {
     console.log("Space: Grabbed", active);
     grabbed = active;
@@ -172,6 +185,11 @@ window.onload = async function () {
   addKey("r", (active) => {
     console.log("R: reset world", active, floor.visible);
     world.matrix.identity();
+  });
+
+  addKey("e", (active) => {
+    console.log("e: shoot", active, floor.visible);
+    isShoot = active;
   });
 
   const maxDistance = 10;
@@ -214,6 +232,17 @@ window.onload = async function () {
       }
       endRay.addVectors(position, direction.multiplyScalar(distance));
       lineFunc(1, endRay);
+    }
+
+    // Schießen
+    if (isShoot === true || (grabbed === true && squeezed === true) ) {
+      if (firstObjectHitByRay) {
+        console.log("shoot", firstObjectHitByRay.object.name);
+        if (firstObjectHitByRay.object !== floor) {
+          world.remove(firstObjectHitByRay.object);
+        }
+      }
+      isShoot = false;
     }
 
     if (grabbed) {
