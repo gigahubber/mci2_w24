@@ -1,5 +1,4 @@
 import * as THREE from "../99_Lib/three.module.min.js";
-import { MathUtils, Vector3 } from "../99_Lib/three.module.min.js";
 import { keyboard, mouse } from "./js/interaction2D.mjs";
 import {
   add,
@@ -10,254 +9,272 @@ import {
 } from "./js/geometry.mjs";
 import { createRay } from "./js/ray.mjs";
 
-import { Water } from "../99_Lib/jsm/objects/Water.js";
-import { Sky } from "../99_Lib/jsm/objects/Sky.js";
+import { Water } from "../99_Lib/jsm//objects/Water.js";
+import { Sky } from "../99_Lib/jsm//objects/Sky.js";
 
 import { VRButton } from "../99_Lib/jsm/webxr/VRButton.js";
 import { createVRcontrollers } from "./js/vr.mjs";
-import { XRControllerModelFactory } from "../99_Lib/jsm/webxr/XRControllerModelFactory.js";
-import { XRButton } from "../99_Lib/jsm/webxr/XRButton.js";
-
-// OrbitControls
-import { OrbitControls } from "../99_Lib/jsm/controls/OrbitControls.js";
-
-// World Generation
-let camera, scene, world, renderer;
-// Movements
-let controller1, controller2;
-let controllerGrip1, controllerGrip2;
-// Movements with Mouse and Keyboard
-let controls;
-
-let room, physics;
-const velocity = new THREE.Vector3();
 
 window.onload = async function () {
-  // Camera erstellen
-  //   camera = new THREE.PerspectiveCamera(
-  //     50,
-  //     window.innerWidth / window.innerHeight,
-  //     0.1,
-  //     1000
-  //   );
-
-  const camera = new THREE.PerspectiveCamera( // fov, aspect, near, far
-    45,
+  const camera = new THREE.PerspectiveCamera(
+    50,
     window.innerWidth / window.innerHeight,
-    1,
-    1000
+    0.1,
+    100
   );
+  camera.position.set(0, 0.3, 2);
 
-  // OrbitControls erstellen für Mouse-Events und Keyboard-Events
-  // Steuerung der Kamera mit der Maus und Tastatur
-  controls = new OrbitControls(camera, document.body);
-  camera.position.set(0, 0, -5); // x,y,z
-  controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
-  controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
-
-  controls.listenToKeyEvents(window);
-  controls.keyPanSpeed = 20;
-  controls.update();
-
-  document.addEventListener("keydown", (event) => {
-    switch (event.code) {
-      case "KeyW":
-        camera.position.z += 0.1;
-        // camera.translateZ(-0.1);
-        break;
-      case "KeyS":
-        camera.position.z -= 0.1;
-        // camera.translateZ(0.1);
-        break;
-      case "KeyA":
-        camera.position.x -= 0.1;
-        // camera.translateX(-0.1);
-        break;
-      case "KeyD":
-        camera.position.x += 0.1;
-        // camera.translateX(0.1);
-        break;
-      case "Space":
-        // camera.translateY(0.1);
-        camera.position.y += 0.1;
-        console.log(camera.position.y);
-        break;
-      case "ControlLeft":
-        // camera.translateY(-0.1);
-        // camera.position.z -= 0.1;
-        break;
-    }
-  });
-
-  // Scene und World erstellen
-  scene = new THREE.Scene();
-  world = new THREE.Group();
+  const scene = new THREE.Scene();
+  const world = new THREE.Group();
   world.matrixAutoUpdate = false;
   scene.add(world);
 
-  // Room erstellen
-  const roomMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    side: THREE.DoubleSide,
-    wireframe: false,
-  });
-  room = new THREE.LineSegments(
-    new THREE.BoxGeometry(40, 20, 40, 10, 10, 10), // Breite, Höhe, Tiefe, Breite Segmente, Höhe Segmente, Tiefe Segmente
-    // new THREE.LineBasicMaterial({ color: 0x808080 })
-    roomMaterial
-    // randomMaterial()
-  );
-  const width = room.geometry.parameters.width;
-  const heigth = room.geometry.parameters.height;
-  console.log(width);
-  room.geometry.translate(0, 8, 0); // x,y,z
-  scene.add(room);
+  scene.background = new THREE.Color(0x666666);
 
-  // Floor erstellen
-  //   const textureLoaderFloor = new THREE.TextureLoader().load('assets/bricks.jpg');
-  const boxFloor = new THREE.BoxGeometry(40, 0.1, 40, 1, 1, 1); // Breite, Höhe, Tiefe, Breite Segmente, Höhe Segmente, Tiefe Segmente
-  const floorMaterial = new THREE.MeshBasicMaterial({
-    color: 0x2a9336,
-    side: THREE.DoubleSide,
-    // wireframe: false,
-    // vertexColors: true,
-    // map: bricks,
-    // map: textureLoaderFloor,
-  });
-  const floor = new THREE.Mesh(boxFloor, floorMaterial);
+  const hemiLight = new THREE.HemisphereLight();
+  scene.add(hemiLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 3);
+  dirLight.position.set(5, 5, 5);
+  dirLight.castShadow = true;
+  dirLight.shadow.camera.zoom = 2;
+  scene.add(dirLight);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // FLOOR
+  // const floorMaterial = await shaderMaterial("./shaders/floorVertexShader.glsl", "./shaders/floorFragmentShader.glsl")
+
+  const width = 0.1;
+  const box = new THREE.BoxGeometry(10, width, 10, 10, 1, 10);
+  const floor = new THREE.Mesh(box, randomMaterial());
   floor.position.y = -1;
   floor.receiveShadow = true;
   floor.userData.physics = { mass: 0 };
   floor.name = "floor";
+
+  const wireframe = new THREE.WireframeGeometry(box);
+  const line = new THREE.LineSegments(wireframe);
+  line.material.opacity = 0.25;
+  line.material.transparent = true;
+  line.position.y = floor.position.y;
+  scene.add(line);
+
   scene.add(floor);
 
-  // Skybox erstellen
-  const sky = new Sky();
-  sky.scale.setScalar(10000);
-  const phi = MathUtils.degToRad(90);
-  const theta = MathUtils.degToRad(180);
-  const sunPosition = new Vector3().setFromSphericalCoords(1, phi, theta);
-  sky.material.uniforms.sunPosition.value = sunPosition;
-  scene.add(sky);
+  const cursor = add(1, scene);
+  const isMouseButton = mouse(cursor);
+
+  let objects = [];
+  let x = -0.8,
+    y = 0.3,
+    z = -0.5,
+    delta = 0.4;
+  for (let i = 0; i < 5; ++i) {
+    objects.push(add(i, world, x, y, z));
+    x += delta;
+  }
+
+  loadGLTFcb("./models/pistol.glb", (gltf) => {
+    gltf.scene.traverse((child) => {
+      if (child.name.includes("geo")) {
+        objects.push(child);
+        child.scale.set(0.2, 0.2, 0.2); // scale here
+        child.position.set(1, 0.5, 0);
+        child.updateMatrix();
+        child.matrixAutoUpdate = false;
+      }
+    });
+    world.add(gltf.scene);
+  });
+
+  const lineFunc = createLine(scene);
+  const rayFunc = createRay(objects);
+
+  let position = new THREE.Vector3();
+  let rotation = new THREE.Quaternion();
+  let scale = new THREE.Vector3();
+  let endRay = new THREE.Vector3();
+  let direction = new THREE.Vector3();
 
   // Renderer erstellen
-  renderer = new THREE.WebGLRenderer({
+  const renderer = new THREE.WebGLRenderer({
     antialias: true,
   });
+
   // Renderer-Parameter setzen
-  renderer.xr.enabled = true;
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   document.body.appendChild(renderer.domElement);
   document.body.appendChild(VRButton.createButton(renderer));
 
-  // document.body.appendChild( XRButton.createButton( renderer, {
-  //   'optionalFeatures': [ 'depth-sensing' ],
-  //   'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] }
-  // } ) );
+  let speed = 0.05; // Bewegungsgeschwindigkeit
+  let controller; // Aktiver Controller (z. B. rechter Controller)
 
-  // Contrllers erstellen
-  function onSelectStart() {
-    this.userData.isSelecting = true;
+  // Funktion, um die Bewegung zu berechnen
+  function handleMovement(controller) {
+    if (!controller) return;
+
+    // Position und Rotation des Controllers abrufen
+    let position = new THREE.Vector3();
+    let rotation = new THREE.Quaternion();
+    let scale = new THREE.Vector3();
+    controller.matrix.decompose(position, rotation, scale);
+
+    // Richtung berechnen (vorwärts in Controller-Richtung)
+    let forward = new THREE.Vector3(0, 0, -1); // Standard "nach vorne"
+    forward.applyQuaternion(rotation); // Transformieren in Controller-Richtung
+
+    // Joystick-Eingaben (benutze `controller.userData.inputAxes` für Joystick-Daten)
+    let input = controller.userData.inputAxes || [0, 0]; // [x, y] Werte
+    let movement = new THREE.Vector3(forward.x, 0, forward.z) // Ebene begrenzen (kein Fliegen)
+      .normalize()
+      .multiplyScalar(input[1] * speed); // Bewegung basierend auf Joystick (y-Achse)
+
+    // Kamera verschieben
+    camera.position.add(movement);
   }
-  function onSelectEnd() {
-    this.userData.isSelecting = false;
-  }
-  controller1 = renderer.xr.getController(0);
-  controller1.addEventListener("selectstart", onSelectStart);
-  controller1.addEventListener("selectend", onSelectEnd);
-  controller1.addEventListener("connected", function (event) {
-    this.add(buildController(event.data));
+
+  // VR-Controller
+  let last_active_controller;
+  createVRcontrollers(scene, renderer, (controller, data, id) => {
+    cursor.matrixAutoUpdate = false;
+    cursor.visible = false;
+    last_active_controller = controller;
+    renderer.xr.enabled = true;
+    console.log("verbinde", id, data.handedness);
   });
-  controller1.addEventListener("disconnected", function () {
-    this.remove(this.children[0]);
+
+  const addKey = keyboard();
+  addKey("Escape", (active) => {
+    console.log("Escape", active);
   });
-  controller2 = renderer.xr.getController(1);
-  controller2.addEventListener("selectstart", onSelectStart);
-  controller2.addEventListener("selectend", onSelectEnd);
-  controller2.addEventListener("connected", function (event) {
-    this.add(buildController(event.data));
+
+  let grabbed = false,
+    squeezed = false;
+  addKey(" ", (active) => {
+    console.log("Space: Grabbed", active);
+    grabbed = active;
   });
-  controller2.addEventListener("disconnected", function () {
-    this.remove(this.children[0]);
+
+  addKey("s", (active) => {
+    console.log("S: Squeeze", active);
+    squeezed = active;
   });
-  scene.add(controller2);
-  scene.add(controller1);
 
-  // Show controllers
-  const controllerModelFactory = new XRControllerModelFactory();
-
-  controllerGrip1 = renderer.xr.getControllerGrip(0);
-  controllerGrip1.add(
-    controllerModelFactory.createControllerModel(controllerGrip1)
-  );
-  scene.add(controllerGrip1);
-  controllerGrip2 = renderer.xr.getControllerGrip(1);
-  controllerGrip2.add(
-    controllerModelFactory.createControllerModel(controllerGrip2)
-  );
-  scene.add(controllerGrip2);
-
-  function buildController(data) {
-    console.log("test: ", data);
-    let geometry, material;
-
-    switch (data.targetRayMode) {
-      case "tracked-pointer":
-        geometry = new THREE.BufferGeometry();
-        geometry.setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, -1], 3)
-        );
-        geometry.setAttribute(
-          "color",
-          new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3)
-        );
-
-        material = new THREE.LineBasicMaterial({
-          vertexColors: true,
-          blending: THREE.AdditiveBlending,
-        });
-
-        return new THREE.Line(geometry, material);
-
-      case "gaze":
-        geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, -1);
-        material = new THREE.MeshBasicMaterial({
-          opacity: 0.5,
-          transparent: true,
-        });
-        return new THREE.Mesh(geometry, material);
+  addKey("f", (active) => {
+    if (active) {
+      console.log("F: toggle floor", active, floor.visible);
+      floor.visible = !floor.visible;
     }
-  }
+  });
 
-  // Controller Hanlder
-  function handleController(controller) {
-    if (controller.userData.isSelecting) {
-      physics.setMeshPosition(spheres, controller.position, count);
+  addKey("r", (active) => {
+    console.log("R: reset world", active, floor.visible);
+    world.matrix.identity();
+  });
 
-      velocity.x = (Math.random() - 0.5) * 2;
-      velocity.y = (Math.random() - 0.5) * 2;
-      velocity.z = Math.random() - 9;
-      velocity.applyQuaternion(controller.quaternion);
+  const maxDistance = 10;
+  direction.set(0, 1, 0);
 
-      physics.setMeshVelocity(spheres, velocity, count);
+  let grabbedObject, initialGrabbed, distance, inverseHand, inverseWorld;
+  const deltaFlyRotation = new THREE.Quaternion();
+  const differenceMatrix = new THREE.Matrix4();
+  const flySpeedRotationFactor = 0.01;
+  const flySpeedTranslationFactor = -0.02;
+  const euler = new THREE.Euler();
 
-      if (++count === spheres.count) count = 0;
-    }
-  }
-
-  // Renderer-Setup
+  // Renderer-Loop starten
   function render() {
-    // Functions later
-    // handleController(controller1);
-    // handleController(controller2);
+    if (last_active_controller) {
+      cursor.matrix.copy(last_active_controller.matrix);
+      squeezed = last_active_controller.userData.isSqueezeing;
+      grabbed = last_active_controller.userData.isSelecting;
+      direction.set(0, 0, -1);
+    } else {
+      direction.set(0, 1, 0);
+    }
 
+    cursor.matrix.decompose(position, rotation, scale);
+    lineFunc(0, position);
+
+    direction.applyQuaternion(rotation);
+
+    let firstObjectHitByRay;
+    if (grabbedObject === undefined) {
+      firstObjectHitByRay = rayFunc(position, direction);
+      if (firstObjectHitByRay) {
+        console.log(
+          firstObjectHitByRay.object.name,
+          firstObjectHitByRay.distance
+        );
+        distance = firstObjectHitByRay.distance;
+      } else {
+        distance = maxDistance;
+      }
+      endRay.addVectors(position, direction.multiplyScalar(distance));
+      lineFunc(1, endRay);
+    }
+
+    if (grabbed) {
+      handleMovement(last_active_controller);
+
+      if (grabbedObject) {
+        endRay.addVectors(position, direction.multiplyScalar(distance));
+        lineFunc(1, endRay);
+        if (grabbedObject === world) {
+          world.matrix.copy(cursor.matrix.clone().multiply(initialGrabbed));
+        } else {
+          grabbedObject.matrix.copy(
+            inverseWorld
+              .clone()
+              .multiply(cursor.matrix)
+              .multiply(initialGrabbed)
+          );
+        }
+      } else if (firstObjectHitByRay) {
+        grabbedObject = firstObjectHitByRay.object;
+        inverseWorld = world.matrix.clone().invert();
+        initialGrabbed = cursor.matrix
+          .clone()
+          .invert()
+          .multiply(world.matrix)
+          .multiply(grabbedObject.matrix);
+      } else {
+        grabbedObject = world;
+        initialGrabbed = cursor.matrix.clone().invert().multiply(world.matrix);
+      }
+    } else {
+      grabbedObject = undefined;
+    }
+
+    if (squeezed) {
+      lineFunc(1, position);
+      if (inverseHand !== undefined) {
+        let differenceHand = cursor.matrix.clone().multiply(inverseHand);
+        differenceHand.decompose(position, rotation, scale);
+        deltaFlyRotation.set(0, 0, 0, 1);
+        deltaFlyRotation.slerp(rotation.conjugate(), flySpeedRotationFactor);
+
+        // Beschränkung der Rotation beim Fliegen
+        euler.setFromQuaternion(deltaFlyRotation);
+        euler.x = 0;
+        euler.z = 0;
+        deltaFlyRotation.setFromEuler(euler);
+
+        differenceMatrix.compose(
+          position.multiplyScalar(flySpeedTranslationFactor),
+          deltaFlyRotation,
+          scale
+        );
+        world.matrix.premultiply(differenceMatrix);
+      } else {
+        inverseHand = cursor.matrix.clone().invert();
+      }
+    } else {
+      inverseHand = undefined;
+    }
     renderer.render(scene, camera);
-
-    // controls update
-    controls.update();
   }
   renderer.setAnimationLoop(render);
 };
