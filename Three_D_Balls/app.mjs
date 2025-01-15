@@ -86,18 +86,18 @@ window.onload = async function () {
     });
     world.add(gltf.scene);
   });
-  loadGLTFcb("./models/cube_with_inner_sphere.glb", (gltf) => {
-    gltf.scene.traverse((child) => {
-      if (child.name.includes("geo")) {
-        objects.push(child);
-        child.scale.set(0.2, 0.2, 0.2); // scale here
-        child.position.set(1, 0.5, 0);
-        child.updateMatrix();
-        child.matrixAutoUpdate = false;
-      }
-    });
-    world.add(gltf.scene);
-  });
+  // loadGLTFcb("./models/cube_with_inner_sphere.glb", (gltf) => {
+  //   gltf.scene.traverse((child) => {
+  //     if (child.name.includes("geo")) {
+  //       objects.push(child);
+  //       child.scale.set(0.2, 0.2, 0.2); // scale here
+  //       child.position.set(1, 0.5, 0);
+  //       child.updateMatrix();
+  //       child.matrixAutoUpdate = false;
+  //     }
+  //   });
+  //   world.add(gltf.scene);
+  // });
 
   const lineFunc = createLine(scene);
   const rayFunc = createRay(objects);
