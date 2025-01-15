@@ -1,309 +1,86 @@
 import * as THREE from "../99_Lib/three.module.min.js";
+import { add } from "./js/geometry.mjs";
 import { keyboard, mouse } from "./js/interaction2D.mjs";
-import {
-  add,
-  createLine,
-  loadGLTFcb,
-  randomMaterial,
-  shaderMaterial,
-} from "./js/geometry.mjs";
-import { createRay } from "./js/ray.mjs";
 
-import { Water } from "../99_Lib/jsm//objects/Water.js";
-import { Sky } from "../99_Lib/jsm//objects/Sky.js";
-
-import { VRButton } from "../99_Lib/jsm/webxr/VRButton.js";
-import { createVRcontrollers } from "./js/vr.mjs";
-
-window.onload = async function () {
+console.log("ThreeJs " + THREE.REVISION);
+window.onload = function () {
+  // Szene
+  const scene = new THREE.Scene();
+  //Lichter
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x606060));
+  const light = new THREE.DirectionalLight(0xffffff);
+  light.position.set(0, 2, 2);
+  scene.add(light);
+  // Kamera
   const camera = new THREE.PerspectiveCamera(
-    50,
+    70,
     window.innerWidth / window.innerHeight,
     0.1,
     100
   );
-  camera.position.set(0, 0.3, 2);
+  camera.position.set(0, 0, 1);
+  scene.add(camera);
+  //Geometrie
 
-  const scene = new THREE.Scene();
-  const world = new THREE.Group();
-  world.matrixAutoUpdate = false;
-  scene.add(world);
+  const addKey = keyboard();
 
-  scene.background = new THREE.Color(0x666666);
+  addKey("a", (active) => {
+    console.log(`a ist ${active}`);
+  });
+  addKey(" ", (active) => {
+    console.log(`SPACE ist ${active}`);
+  });
 
-  const hemiLight = new THREE.HemisphereLight();
-  scene.add(hemiLight);
-
-  const dirLight = new THREE.DirectionalLight(0xffffff, 3);
-  dirLight.position.set(5, 5, 5);
-  dirLight.castShadow = true;
-  dirLight.shadow.camera.zoom = 2;
-  scene.add(dirLight);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // FLOOR
-  // const floorMaterial = await shaderMaterial("./shaders/floorVertexShader.glsl", "./shaders/floorFragmentShader.glsl")
-
-  const width = 0.1;
-  const box = new THREE.BoxGeometry(10, width, 10, 10, 1, 10);
-  const floor = new THREE.Mesh(box, randomMaterial());
-  floor.position.y = -1;
-  floor.receiveShadow = true;
-  floor.userData.physics = { mass: 0 };
-  floor.name = "floor";
-
-  const wireframe = new THREE.WireframeGeometry(box);
-  const line = new THREE.LineSegments(wireframe);
-  line.material.opacity = 0.25;
-  line.material.transparent = true;
-  line.position.y = floor.position.y;
-  scene.add(line);
-
-  scene.add(floor);
+  const arr = [];
+  let count = 0;
 
   const cursor = add(1, scene);
-  const isMouseButton = mouse(cursor);
+  mouse(cursor);
 
-  let objects = [];
-  let x = -0.8,
-    y = 0.3,
-    z = -0.5,
-    delta = 0.4;
-  for (let i = 0; i < 5; ++i) {
-    objects.push(add(i, world, x, y, z));
-    x += delta;
+  const delta = 0.3,
+    z = -1;
+  for (let x = -2; x <= 2; x += delta * 2) {
+    for (let y = -1; y <= 1; y += delta) {
+      if (++count % 2 == 0) 
+        arr.push(add(6, scene, x, y, z));
+      else 
+        arr.push(add(0, scene, x, y, z));
+    }
   }
 
-  loadGLTFcb("./models/revolver.glb", (gltf) => {
-    gltf.scene.traverse((child) => {
-      if (child.name.includes("geo")) {
-        objects.push(child);
-        child.scale.set(0.2, 0.2, 0.2); // scale here
-        child.position.set(1, 0.5, 0);
-        child.updateMatrix();
-        child.matrixAutoUpdate = false;
-      }
-    });
-    world.add(gltf.scene);
-  });
-  // loadGLTFcb("./models/cube_with_inner_sphere.glb", (gltf) => {
-  //   gltf.scene.traverse((child) => {
-  //     if (child.name.includes("geo")) {
-  //       objects.push(child);
-  //       child.scale.set(0.2, 0.2, 0.2); // scale here
-  //       child.position.set(1, 0.5, 0);
-  //       child.updateMatrix();
-  //       child.matrixAutoUpdate = false;
-  //     }
-  //   });
-  //   world.add(gltf.scene);
-  // });
-
-  const lineFunc = createLine(scene);
-  const rayFunc = createRay(objects);
-
-  let position = new THREE.Vector3();
-  let rotation = new THREE.Quaternion();
-  let scale = new THREE.Vector3();
-  let endRay = new THREE.Vector3();
-  let direction = new THREE.Vector3();
+  const menuItems = [];
+  for (let x = -2; x <= 2; x += 1) {
+    menuItems.push(add(0, scene, x, 0, -0.5));
+  }
 
   // Renderer erstellen
   const renderer = new THREE.WebGLRenderer({
-    antialias: true,
+    antialias: false,
   });
-
   // Renderer-Parameter setzen
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
   document.body.appendChild(renderer.domElement);
-  document.body.appendChild(VRButton.createButton(renderer));
-
-  let speed = 0.05; // Bewegungsgeschwindigkeit
-  let controller; // Aktiver Controller (z. B. rechter Controller)
-
-  // Funktion, um die Bewegung zu berechnen
-  function handleMovement(controller) {
-    if (!controller) return;
-
-    // Position und Rotation des Controllers abrufen
-    let position = new THREE.Vector3();
-    let rotation = new THREE.Quaternion();
-    let scale = new THREE.Vector3();
-    controller.matrix.decompose(position, rotation, scale);
-
-    // Richtung berechnen (vorwärts in Controller-Richtung)
-    let forward = new THREE.Vector3(0, 0, -1); // Standard "nach vorne"
-    forward.applyQuaternion(rotation); // Transformieren in Controller-Richtung
-
-    // Joystick-Eingaben (benutze `controller.userData.inputAxes` für Joystick-Daten)
-    let input = controller.userData.inputAxes || [0, 0]; // [x, y] Werte
-    let movement = new THREE.Vector3(forward.x, 0, forward.z) // Ebene begrenzen (kein Fliegen)
-      .normalize()
-      .multiplyScalar(input[1] * speed); // Bewegung basierend auf Joystick (y-Achse)
-
-    // Kamera verschieben
-    camera.position.add(movement);
-  }
-
-  // VR-Controller
-  let last_active_controller;
-  createVRcontrollers(scene, renderer, (controller, data, id) => {
-    cursor.matrixAutoUpdate = false;
-    cursor.visible = false;
-    last_active_controller = controller;
-    renderer.xr.enabled = true;
-    console.log("verbinde", id, data.handedness);
-  });
-
-  const addKey = keyboard();
-  addKey("Escape", (active) => {
-    console.log("Escape", active);
-  });
-
-  let grabbed = false,
-    squeezed = false,
-    isShoot = false;
-  addKey(" ", (active) => {
-    console.log("Space: Grabbed", active);
-    grabbed = active;
-  });
-
-  addKey("s", (active) => {
-    console.log("S: Squeeze", active);
-    squeezed = active;
-  });
-
-  addKey("f", (active) => {
-    if (active) {
-      console.log("F: toggle floor", active, floor.visible);
-      floor.visible = !floor.visible;
-    }
-  });
-
-  addKey("r", (active) => {
-    console.log("R: reset world", active, floor.visible);
-    world.matrix.identity();
-  });
-
-  addKey("e", (active) => {
-    console.log("e: shoot", active, floor.visible);
-    isShoot = active;
-  });
-
-  const maxDistance = 10;
-  direction.set(0, 1, 0);
-
-  let grabbedObject, initialGrabbed, distance, inverseHand, inverseWorld;
-  const deltaFlyRotation = new THREE.Quaternion();
-  const differenceMatrix = new THREE.Matrix4();
-  const flySpeedRotationFactor = 0.01;
-  const flySpeedTranslationFactor = -0.02;
-  const euler = new THREE.Euler();
-
+  let startTime = new Date();
   // Renderer-Loop starten
-  function render() {
-    if (last_active_controller) {
-      cursor.matrix.copy(last_active_controller.matrix);
-      squeezed = last_active_controller.userData.isSqueezeing;
-      grabbed = last_active_controller.userData.isSelecting;
-      direction.set(0, 0, -1);
-    } else {
-      direction.set(0, 1, 0);
-    }
-
-    cursor.matrix.decompose(position, rotation, scale);
-    lineFunc(0, position);
-
-    direction.applyQuaternion(rotation);
-
-    let firstObjectHitByRay;
-    if (grabbedObject === undefined) {
-      firstObjectHitByRay = rayFunc(position, direction);
-      if (firstObjectHitByRay) {
-        console.log(
-          firstObjectHitByRay.object.name,
-          firstObjectHitByRay.distance
-        );
-        distance = firstObjectHitByRay.distance;
-      } else {
-        distance = maxDistance;
+  {
+    const x = Math.random() * 0.1;
+    const y = Math.random() * 0.1;
+    const z = Math.random() * 0.1;
+    function render() {
+      const t = new Date().getMilliseconds().toFixed() % 100;
+      for (const o of arr) {
+        // o.rotation.x += x;
+        // o.rotation.y += y;
+        // o.rotation.z += z;
+        o.position.z -= 0.01;
       }
-      endRay.addVectors(position, direction.multiplyScalar(distance));
-      lineFunc(1, endRay);
+      renderer.render(scene, camera);
+      const now = new Date();
+      const delta = now - startTime;
+      startTime = now;
+      console.log(`delta ${delta / 1000} sec`);
     }
-
-    // Schießen
-    if (isShoot === true || (grabbed === true && squeezed === true) ) {
-      if (firstObjectHitByRay) {
-        console.log("shoot", firstObjectHitByRay.object.name);
-        if (firstObjectHitByRay.object !== floor) {
-          world.remove(firstObjectHitByRay.object);
-        }
-      }
-      isShoot = false;
-    }
-
-    if (grabbed) {
-      handleMovement(last_active_controller);
-
-      if (grabbedObject) {
-        endRay.addVectors(position, direction.multiplyScalar(distance));
-        lineFunc(1, endRay);
-        if (grabbedObject === world) {
-          world.matrix.copy(cursor.matrix.clone().multiply(initialGrabbed));
-        } else {
-          grabbedObject.matrix.copy(
-            inverseWorld
-              .clone()
-              .multiply(cursor.matrix)
-              .multiply(initialGrabbed)
-          );
-        }
-      } else if (firstObjectHitByRay) {
-        grabbedObject = firstObjectHitByRay.object;
-        inverseWorld = world.matrix.clone().invert();
-        initialGrabbed = cursor.matrix
-          .clone()
-          .invert()
-          .multiply(world.matrix)
-          .multiply(grabbedObject.matrix);
-      } else {
-        grabbedObject = world;
-        initialGrabbed = cursor.matrix.clone().invert().multiply(world.matrix);
-      }
-    } else {
-      grabbedObject = undefined;
-    }
-
-    if (squeezed) {
-      lineFunc(1, position);
-      if (inverseHand !== undefined) {
-        let differenceHand = cursor.matrix.clone().multiply(inverseHand);
-        differenceHand.decompose(position, rotation, scale);
-        deltaFlyRotation.set(0, 0, 0, 1);
-        deltaFlyRotation.slerp(rotation.conjugate(), flySpeedRotationFactor);
-
-        // Beschränkung der Rotation beim Fliegen
-        euler.setFromQuaternion(deltaFlyRotation);
-        euler.x = 0;
-        euler.z = 0;
-        deltaFlyRotation.setFromEuler(euler);
-
-        differenceMatrix.compose(
-          position.multiplyScalar(flySpeedTranslationFactor),
-          deltaFlyRotation,
-          scale
-        );
-        world.matrix.premultiply(differenceMatrix);
-      } else {
-        inverseHand = cursor.matrix.clone().invert();
-      }
-    } else {
-      inverseHand = undefined;
-    }
-    renderer.render(scene, camera);
+    renderer.setAnimationLoop(render);
   }
-  renderer.setAnimationLoop(render);
 };
